@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>កម្មវិធីបង្កើត QR Code (React)</title>
+    
+    <!-- 1. ភ្ជាប់ Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. ភ្ជាប់ Font ខ្មែរ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kantumruy Pro', sans-serif;
+        }
+    </style>
+    
+    <!-- 3. ភ្ជាប់ Libraries របស់ React -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- 4. ភ្ជាប់ Babel (ដើម្បីបកប្រែ JSX នៅក្នុង Browser) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 5. ភ្ជាប់បណ្ណាល័យ QR Code (ដែល React នឹងប្រើ) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- 6. នេះគឺជាកន្លែងដែល React នឹងដាក់ App របស់យើង -->
+    <div id="root"></div>
+
+    <!-- 7. សរសេរកូដ React របស់យើង (ត្រូវប្រើ type="text/babel") -->
+    <script type="text/babel">
+    
+        // មិនចាំបាច់ Import ទេ ព្រោះ React ត្រូវបានផ្ទុក (load) រួចហើយ
+        const { useState, useRef, Fragment } = React;
+
+        // នេះគឺជា Component គោលរបស់កម្មវិធី
+        function App() {
+            
+            // State សម្រាប់រក្សាទុកតម្លៃ Input
+            const [textInput, setTextInput] = useState('');
+            const [fileNameInput, setFileNameInput] = useState('');
+            
+            // State សម្រាប់បង្ហាញសារ Error
+            const [errorMessage, setErrorMessage] = useState('');
+            
+            // State សម្រាប់បង្ហាញ/លាក់ប៊ូតុងទាញយក
+            const [showDownloadBtn, setShowDownloadBtn] = useState(false);
+            
+            // (កែសម្រួល) State ថ្មីសម្រាប់គ្រប់គ្រងការបង្ហាញ UI
+            const [isQrVisible, setIsQrVisible] = useState(false);
+            
+            // Ref ទៅកាន់ Div ដែលត្រូវដាក់ QR Code
+            const qrCodeRef = useRef(null);
+            
+            // មុខងារពេលចុចប៊ូតុង "បង្កើត QR Code"
+            const handleGenerate = () => {
+                const text = textInput.trim();
+
+                // 1. ជម្រះ QR Code ចាស់, សារ Error, និងលាក់ប៊ូតុង
+                if (qrCodeRef.current) {
+                    qrCodeRef.current.innerHTML = '';
+                }
+                setErrorMessage('');
+                setShowDownloadBtn(false);
+                setIsQrVisible(false); // (កែសម្រួល) ចាប់ផ្ដើមដោយលាក់ QR
+
+                // 2. ពិនិត្យមើលថា Library ដំណើរការឬអត់
+                if (typeof QRCode === 'undefined') {
+                    setErrorMessage('Library QR Code មិនអាចផ្ទុកបានទេ។ សូមព្យាយាម Refresh ទំព័រ។');
+                    return;
+                }
+
+                // 3. ពិនិត្យមើលថាមានវាយអក្សរឬនៅ (ទោះបីប៊ូតុង disabled ក៏ដោយ ទុកសម្រាប់ check ពេលចុច Enter)
+                if (text === '') {
+                    setErrorMessage('សូម​វាយ​បញ្ចូល URL ឬអត្ថបទជាមុនសិន');
+                    return;
+                }
+
+                // 4. បង្កើត Canvas
+                const canvas = document.createElement('canvas');
+
+                // 5. ប្រើ Library QRCode.toCanvas
+                QRCode.toCanvas(canvas, text, { width: 256, margin: 2 }, (error) => {
+                    if (error) {
+                        // បើមានបញ្ហា
+                        console.error(error);
+                        setErrorMessage('មានបញ្ហាក្នុងការបង្កើត QR Code');
+                    } else {
+                        // បើជោគជ័យ
+                        if (qrCodeRef.current) {
+                            qrCodeRef.current.appendChild(canvas);
+                        }
+                        setShowDownloadBtn(true); // បង្ហាញប៊ូតុងទាញយក
+                        setIsQrVisible(true); // (កែសម្រួល) បង្ហាញ QR Code (និងលាក់ Input)
+                    }
+                });
+            };
+
+            // មុខងារពេលចុច "ទាញយករូបភាព"
+            const handleDownload = () => {
+                if (!qrCodeRef.current) return;
+
+                const canvas = qrCodeRef.current.querySelector('canvas');
+                if (!canvas) return;
+
+                const fileName = fileNameInput.trim();
+                const finalFileName = (fileName === '' ? 'qrcode' : fileName) + '.png';
+
+                const link = document.createElement('a');
+                link.download = finalFileName;
+                link.href = canvas.toDataURL('image/png');
+                link.click(); 
+
+                // (កែសម្រួល) បន្ទាប់ពីទាញយករួច ធ្វើការ Reset UI ភ្លាមៗ
+                setIsQrVisible(false);      // លាក់ QR Code & បង្ហាញ Input វិញ
+                setShowDownloadBtn(false);  // លាក់ប៊ូតុងទាញយក
+                setTextInput('');           // សម្អាត Input Link
+                setFileNameInput('');       // សម្អាត Input ឈ្មោះ
+                setErrorMessage('');      // សម្អាត Error
+                
+                // សម្អាត QR Code ចេញពី div
+                if (qrCodeRef.current) {
+                    qrCodeRef.current.innerHTML = '';
+                }
+            };
+
+            // មុខងារសម្រាប់ចុច 'Enter'
+            const handleKeyDown = (event) => {
+                if (event.key === 'Enter') {
+                    // (កែសម្រួល) ពិនិត្យថា Input មិនទទេ សឹមដំណើរការ
+                    if (textInput.trim() !== '') {
+                        handleGenerate();
+                    }
+                }
+            };
+
+            // នេះគឺជា UI ដែលនឹងបង្ហាញ (សរសេរជា JSX)
+            return (
+                <div className="bg-white/90 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200/50">
+                    
+                    <h1 className="text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-6">
+                        កម្មវិធីបង្កើត QR Code
+                    </h1>
+                    
+                    {/* (កែសម្រួល) បង្ហាញផ្នែកនេះ លុះត្រាតែ QR មិនទាន់បង្ហាញ */}
+                    {!isQrVisible && (
+                        <Fragment>
+                            {/* សម្រាប់ដាក់ URL */}
+                            <div className="mb-4">
+                                <label htmlFor="urlInput" className="block text-sm font-medium text-gray-700 mb-2">
+                                    សូម​វាយ​បញ្ចូល URL ឬអត្ថបទ៖
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="urlInput"
+                                    className="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="https://example.com"
+                                    value={textInput}
+                                    onChange={(e) => setTextInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                />
+                            </div>
+                            
+                            {/* សម្រាប់ដាក់ឈ្មោះឯកសារ */}
+                            <div className="mb-4">
+                                <label htmlFor="fileNameInput" className="block text-sm font-medium text-gray-700 mb-2">
+                                    ឈ្មោះឯកសារ (ស្រេចចិត្ត សម្រាប់ទាញយក):
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="fileNameInput"
+                                    className="w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="my_qrcode"
+                                    value={fileNameInput}
+                                    onChange={(e) => setFileNameInput(e.target.value)}
+                                />
+                            </div>
+                            
+                            {/* ប៊ូតុងបង្កើត */}
+                            <button 
+                                onClick={handleGenerate}
+                                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-600 transition duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                // (កែសម្រួល) បិទប៊ូតុងបើ Input មិនទាន់បានបំពេញ
+                                disabled={textInput.trim() === ''}
+                            >
+                                បង្កើត QR Code
+                            </button>
+                        </Fragment>
+                    )}
+                    
+                    {/* កន្លែងបង្ហាញសារ Error (បើមាន) - ទុកឲ្យបង្ហាញរហូត */}
+                    {errorMessage && (
+                        <p className="text-red-500 text-sm text-center mt-3">
+                            {errorMessage}
+                        </p>
+                    )}
+                    
+                    {/* (កែសម្រួល) បង្ហាញផ្នែកនេះ លុះត្រាតែ QR បង្ហាញ */}
+                    {isQrVisible && (
+                        <Fragment>
+                            {/* កន្លែងបង្ហាញ QR Code */}
+                            <div 
+                                ref={qrCodeRef} 
+                                className="mt-6 flex justify-center items-center border-t border-gray-200/80 border-dashed pt-6"
+                            >
+                                {/* QR Code នឹងបង្ហាញនៅទីនេះ */}
+                            </div>
+                            
+                            {/* ប៊ូតុងទាញយក (លាក់ទុកជាមុន) */}
+                            {showDownloadBtn && (
+                                <button 
+                                    onClick={handleDownload}
+                                    className="w-full bg-gradient-to-r from-green-600 to-emerald-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-600 transition duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 mt-4"
+                                >
+                                    ទាញយករូបភាព QR Code
+                                </button>
+                            )}
+                        </Fragment>
+                    )}
+                    
+                </div>
+            );
+        }
+
+        // 8. ចាប់ផ្ដើមដំណើរការ App របស់យើង ហើយដាក់វាទៅក្នុង <div id="root">
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+
+    </script>
+
+</body>
+</html>
